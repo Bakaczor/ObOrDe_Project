@@ -1,6 +1,4 @@
 ﻿using Base_Representation;
-using System;
-using System.Collections.Generic;
 
 namespace Interfaces
 {
@@ -10,65 +8,75 @@ namespace Interfaces
     }
     public interface ILine
     {
-        public string NumberHex { get; }
-        public int NumberDec { get; }
-        public string CommonName { get; }
-        public List<int> GetStopIds {  get; }
-        public List<int> GetVehicleIds { get; }
+        string NumberHex { get; }
+        int NumberDec { get; }
+        string CommonName { get; }
+        List<int> GetStopIds {  get; }
+        List<int> GetVehicleIds { get; }
         string ToString();
+        bool Equals(object? other)
+        {
+            if (other != null && other is ILine l)
+                return l.NumberDec == NumberDec;
+            return false;
+        }
     }
     public interface IStop
     {
-        public int Id { get; }
-        public string Name { get; }
-        public EType Type { get; }
-        public List<int> GetLineIds { get; }
+        int Id { get; }
+        string Name { get; }
+        EType Type { get; }
+        List<int> GetLineIds { get; }
         string ToString();
+        bool Equals(object? other)
+        {
+            if (other != null && other is IStop s)
+                return s.Id == Id;
+            return false;
+        }
     }
     public interface IVehicle
     { 
-        public int Id { get; }
-        public List<int> GetLineIds { get; }
+        int Id { get; }
+        List<int> GetLineIds { get; }
         string ToString();
+        bool Equals(object? other)
+        {
+            if (other != null && other is IVehicle v)
+                return v.Id == Id;
+            return false;
+        }
     }
-    //public interface IBytebus
-    //{
-    //    public int Id { get; }
-    //    public EEngineClass EngineClass { get; }
-    //    public List<int> GetLineIds { get; }
-    //    string ToString();
-    //}
-    //public interface ITram
-    //{
-    //    public int Id { get; }
-    //    public int CarsNumber { get; }
-    //    public int GetLineId { get; }
-    //    string ToString();
-    //}
     public interface IDriver
     {
-        public string Name { get; }
-        public string Surname { get; }
-        public int Seniority { get; }
-        public List<int> GetVehicleIds { get; }
+        string Name { get; }
+        string Surname { get; }
+        int Seniority { get; }
+        List<int> GetVehicleIds { get; }
         string ToString();
+        bool Equals(object? other)
+        {
+            if (other != null && other is IDriver d)
+                return d.Name == Name && d.Surname == Surname;
+            return false;
+        }
     }
-    public interface ImyCollection<T>
+    public interface IMyCollection<T>
     {
-        public void Add(T value);
-        public void Delete();
-        public int Count { get; }
-        public ImyIterator<T> GetForwardBegin { get; }
-        public ImyIterator<T> GetForwardEnd { get; }
-        public ImyIterator<T> GetReverseBegin { get; }
-        public ImyIterator<T> GetReverseEnd { get; }
+        void Add(T value);
+        bool Delete(T value); //using Equals method, returns false if no occurence has been found, deletes only first occurence
+        int Count { get; }
+        IMyIterator<T> GetForwardBegin { get; }
+        IMyIterator<T> GetForwardEnd { get; }
+        IMyIterator<T> GetReverseBegin { get; }
+        IMyIterator<T> GetReverseEnd { get; }
     }
 
-    public interface ImyIterator<T>
+    public interface IMyIterator<T>
     {
-        public bool MoveNext();
-        public T CurrentValue { get; }
-        public int CurrentIndex { get; }
+        int CurrentIndex { get; }
+        T CurrentValue { get; }
+        bool MoveNext();
     }
 
 }

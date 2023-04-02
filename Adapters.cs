@@ -1,7 +1,6 @@
 ﻿using Hashmap_Representation;
 using Base_Representation;
 using TupleStack_Representation;
-using System;
 using System.Text;
 using Interfaces;
 
@@ -274,89 +273,6 @@ namespace Adapters
         }
     }
 
-
-
-    /*
-    public class AdapterTS2B
-    {
-        private TSRep _tsrep;
-        public AdapterTS2B(TSRep tsrep)
-        {
-            _tsrep = tsrep;
-        }
-        public override string ToString()
-        {
-            StringBuilder text = new();
-            text.Append("Lines:\n");
-            foreach (TSLine line in _tsrep.lines.Values) text.Append(line.ToString() + "\n");
-            text.Append("\nStops:\n");
-            foreach (TSStop stop in _tsrep.stops.Values) text.Append(stop.ToString() + "\n");
-            text.Append("\nVehicles:\n");
-            foreach (TSVehicle vehicle in _tsrep.vehicles.Values) text.Append(vehicle.ToString() + "\n");
-            text.Append("\nDrivers:\n");
-            foreach (TSDriver driver in _tsrep.drivers.Values) text.Append(driver.ToString() + "\n");
-            return text.ToString();
-        }
-        public string Task2()
-        {
-            Dictionary<int, TSVehicle> dvehicles = new();
-
-            foreach (TSDriver d in _tsrep.drivers.Values)
-                if (d.Seniority >= 10)
-                {
-                    Stack<string> ST = new(d.DriverTuple.Item2.Reverse());
-
-                    int num = int.Parse(ST.Pop());
-                    for (int i = 0; i < num; i++)
-                    {
-                        int vID = int.Parse(ST.Pop());
-                        if (!dvehicles.ContainsKey(vID)) dvehicles.Add(vID, _tsrep.vehicles[vID]);
-                    }
-                }
-
-            Dictionary<int, TSLine> vlines = new();
-
-            foreach (TSVehicle v in dvehicles.Values)
-            {
-                Stack<string> ST = new(v.VehicleTuple.Item2.Reverse());
-
-                if (v is TSBytebus)
-                {
-                    int num = int.Parse(ST.Pop());
-                    for (int i = 0; i < num; i++)
-                    {
-                        int lID = int.Parse(ST.Pop());
-                        if (!vlines.ContainsKey(lID)) vlines.Add(lID, _tsrep.lines[lID]);
-                    }
-                }
-
-                if (v is TSTram)
-                {
-                    ST.Pop();
-                    int lID = int.Parse(ST.Pop());
-                    if (!vlines.ContainsKey(lID)) vlines.Add(lID, _tsrep.lines[lID]);
-                }
-            }
-
-            StringBuilder output = new();
-            List<(int, TSLine)> sortedlines = new();
-            foreach ((int id, TSLine l) in vlines) sortedlines.Add((id, l));
-            sortedlines.Sort(
-               (x, y) =>
-               {
-                   if (x.Item1 == y.Item1) return 0;
-                   else
-                   {
-                       if (x.Item1 > y.Item1) return 1;
-                       else return -1;
-                   }
-               });
-            foreach ((_ ,TSLine l) in sortedlines) output.Append(l.NumberDec + " " + l.CommonName + "\n");
-            return output.ToString();
-        }
-    }
-    */
-
     /*
     public class ConverterTS2B
     {
@@ -437,9 +353,7 @@ namespace Adapters
         }
         public override string ToString() { return _tsrep.ToString(); }
     }
-    */
 
-    /*
     public class ConverterHM2B
     {
         private HashmapRep _hashmaprep;

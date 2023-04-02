@@ -1,5 +1,4 @@
-﻿using System;
-using System.Text;
+﻿using System.Text;
 using Interfaces;
 
 namespace Base_Representation
@@ -223,43 +222,5 @@ namespace Base_Representation
             foreach (Driver driver in drivers.Values) text.Append(driver.ToString() + "\n");
             return text.ToString();
         }
-        /*
-        public string Task2()
-        {
-            Dictionary<int, Vehicle> dvehicles = new();
-
-            foreach (Driver d in drivers.Values)
-                if (d.Seniority >= 10)
-                    foreach (Vehicle v in d.vehicles)
-                        if (!dvehicles.ContainsKey(v.Id)) dvehicles.Add(v.Id, v);
-
-            Dictionary<int, Line> vlines = new();
-
-            foreach (Vehicle v in dvehicles.Values)
-            {
-                if (v is Bytebus b)
-                    foreach (Line l in b.lines)
-                        if (!vlines.ContainsKey(l.NumberDec)) vlines.Add(l.NumberDec, l);
-
-                if (v is Tram t) if (!vlines.ContainsKey(t.line.NumberDec)) vlines.Add(t.line.NumberDec, t.line);
-            }
-
-            StringBuilder output = new();
-            List<(int, Line)> sortedlines = new();
-            foreach ((int id, Line l) in vlines) sortedlines.Add((id, l));
-            sortedlines.Sort(
-                (x, y) =>
-                {
-                    if (x.Item1 == y.Item1) return 0;
-                    else
-                    {
-                        if(x.Item1 > y.Item1) return 1;
-                        else return -1;
-                    }
-                });
-            foreach ((_, Line l) in sortedlines) output.Append(l.NumberDec + " " + l.CommonName + "\n");
-            return output.ToString();
-        }
-        */
     }
 }
