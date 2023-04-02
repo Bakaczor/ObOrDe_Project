@@ -67,9 +67,9 @@ namespace Interfaces
         bool Delete(T value); //using Equals method, returns false if no occurence has been found, deletes only first occurence
         int Count { get; }
         IMyIterator<T> GetForwardBegin { get; }
-        IMyIterator<T> GetForwardEnd { get; }
+        //IMyIterator<T> GetForwardEnd { get; }
         IMyIterator<T> GetReverseBegin { get; }
-        IMyIterator<T> GetReverseEnd { get; }
+        //IMyIterator<T> GetReverseEnd { get; }
     }
 
     public interface IMyIterator<T>
@@ -77,6 +77,7 @@ namespace Interfaces
         int CurrentIndex { get; }
         T CurrentValue { get; }
         bool MoveNext();
+        //bool Equals(object? other);
     }
 
 }

@@ -141,7 +141,7 @@ namespace Base_Representation
 
         public Line line;
         public int CarsNumber { get => _carsNumber; set => _carsNumber = value; }
-        public override List<int> GetLineIds { get => new List<int> { line.NumberDec }; }
+        public override List<int> GetLineIds { get => new() { line.NumberDec }; }
         public Tram(int id, int carsNumber, Line line) : base(id)
         {
             _carsNumber = carsNumber;

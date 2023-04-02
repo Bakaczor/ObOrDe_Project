@@ -34,7 +34,7 @@ namespace Collections
         public void Add(T value)
         {
             T[] array = new T[++_length];
-            if (_tab != null) _tab.CopyTo(array, 0);
+            _tab?.CopyTo(array, 0);
             array[^1] = value;
             _tab = array;
         }
@@ -57,10 +57,12 @@ namespace Collections
             _tab = array;
             return true;
         }
-        public IMyIterator<T> GetForwardBegin => new MyVectorIterator<T>(this, true, true);
-        public IMyIterator<T> GetForwardEnd => new MyVectorIterator<T>(this, true, false); 
-        public IMyIterator<T> GetReverseBegin => new MyVectorIterator<T>(this, false, true);
-        public IMyIterator<T> GetReverseEnd => new MyVectorIterator<T>(this, false, false); 
+        //public IMyIterator<T> GetForwardBegin => new MyVectorIterator<T>(this, true, true);
+        //public IMyIterator<T> GetForwardEnd => new MyVectorIterator<T>(this, true, false); 
+        //public IMyIterator<T> GetReverseBegin => new MyVectorIterator<T>(this, false, true);
+        //public IMyIterator<T> GetReverseEnd => new MyVectorIterator<T>(this, false, false); 
+        public IMyIterator<T> GetForwardBegin => new MyVectorIterator<T>(this, true);
+        public IMyIterator<T> GetReverseBegin => new MyVectorIterator<T>(this, false);
     }
     public class MyDoubleLinkedList<T> : IMyCollection<T>
     {
@@ -133,10 +135,12 @@ namespace Collections
             }
             return false;
         }
-        public IMyIterator<T> GetForwardBegin => new MyDoubleLinkedListIterator<T>(this, true, true);
-        public IMyIterator<T> GetForwardEnd => new MyDoubleLinkedListIterator<T>(this, true, false);
-        public IMyIterator<T> GetReverseBegin => new MyDoubleLinkedListIterator<T>(this, false, true);
-        public IMyIterator<T> GetReverseEnd => new MyDoubleLinkedListIterator<T>(this, false, false);
+        //public IMyIterator<T> GetForwardBegin => new MyDoubleLinkedListIterator<T>(this, true, true);
+        //public IMyIterator<T> GetForwardEnd => new MyDoubleLinkedListIterator<T>(this, true, false);
+        //public IMyIterator<T> GetReverseBegin => new MyDoubleLinkedListIterator<T>(this, false, true);
+        //public IMyIterator<T> GetReverseEnd => new MyDoubleLinkedListIterator<T>(this, false, false);
+        public IMyIterator<T> GetForwardBegin => new MyDoubleLinkedListIterator<T>(this, true);
+        public IMyIterator<T> GetReverseBegin => new MyDoubleLinkedListIterator<T>(this, false);
     }
     public class MyNode<T>
     {
