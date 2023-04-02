@@ -53,4 +53,22 @@ namespace Interfaces
         public List<int> GetVehicleIds { get; }
         string ToString();
     }
+    public interface ImyCollection<T>
+    {
+        public void Add(T value);
+        public void Delete();
+        public int Count { get; }
+        public ImyIterator<T> GetForwardBegin { get; }
+        public ImyIterator<T> GetForwardEnd { get; }
+        public ImyIterator<T> GetReverseBegin { get; }
+        public ImyIterator<T> GetReverseEnd { get; }
+    }
+
+    public interface ImyIterator<T>
+    {
+        public bool MoveNext();
+        public T CurrentValue { get; }
+        public int CurrentIndex { get; }
+    }
+
 }
