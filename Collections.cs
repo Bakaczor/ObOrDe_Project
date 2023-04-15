@@ -1,5 +1,6 @@
 ﻿using Interfaces;
 using Iterators;
+using System;
 
 namespace Collections
 {
@@ -44,7 +45,7 @@ namespace Collections
 
             int index = -1;
             for (int i = 0; i < _length; i++)
-                if ( (value == null && _tab[i] == null) || (value != null && value.Equals(_tab[i])) )
+                if ((value == null && _tab[i] == null) || (value != null && value.Equals(_tab[i])))
                 {
                     index = i;
                     break;
@@ -57,10 +58,6 @@ namespace Collections
             _tab = array;
             return true;
         }
-        //public IMyIterator<T> GetForwardBegin => new MyVectorIterator<T>(this, true, true);
-        //public IMyIterator<T> GetForwardEnd => new MyVectorIterator<T>(this, true, false); 
-        //public IMyIterator<T> GetReverseBegin => new MyVectorIterator<T>(this, false, true);
-        //public IMyIterator<T> GetReverseEnd => new MyVectorIterator<T>(this, false, false); 
         public IMyIterator<T> GetForwardBegin => new MyVectorIterator<T>(this, true);
         public IMyIterator<T> GetReverseBegin => new MyVectorIterator<T>(this, false);
     }
@@ -80,7 +77,7 @@ namespace Collections
         }
         public MyDoubleLinkedList(params T[] array) : this()
         {
-            foreach(var item in array) Add(item);
+            foreach (var item in array) Add(item);
         }
         public void Add(T value)
         {
@@ -106,7 +103,7 @@ namespace Collections
 
             while (current != null)
             {
-                if ( (value == null && current.Value == null) || (value != null && value.Equals(current.Value)) )
+                if ((value == null && current.Value == null) || (value != null && value.Equals(current.Value)))
                 {
                     if (current.Prev == null && current.Next == null) // jeden element
                     {
@@ -135,10 +132,6 @@ namespace Collections
             }
             return false;
         }
-        //public IMyIterator<T> GetForwardBegin => new MyDoubleLinkedListIterator<T>(this, true, true);
-        //public IMyIterator<T> GetForwardEnd => new MyDoubleLinkedListIterator<T>(this, true, false);
-        //public IMyIterator<T> GetReverseBegin => new MyDoubleLinkedListIterator<T>(this, false, true);
-        //public IMyIterator<T> GetReverseEnd => new MyDoubleLinkedListIterator<T>(this, false, false);
         public IMyIterator<T> GetForwardBegin => new MyDoubleLinkedListIterator<T>(this, true);
         public IMyIterator<T> GetReverseBegin => new MyDoubleLinkedListIterator<T>(this, false);
     }
@@ -151,5 +144,72 @@ namespace Collections
         {
             Value = value;
         }
+    }
+
+    public class MyBinaryHeap<T> : IMyCollection<T> //no sentinel -> parent = (i-1)/2, left = 2i+1, right = 2i+2
+    {
+        private readonly Comparer<T> _comparer;
+        private List<T> _list;
+        public MyBinaryHeap(Comparer<T> comparer)
+        {
+            _comparer = comparer;
+            _list = new List<T>();      
+        }
+        public MyBinaryHeap(Comparer<T> comparer, T[] tab)
+        {
+            _comparer = comparer;
+            _list = new List<T>(tab);
+            for (int i = Count / 2 - 1; i >= 0; i--) DownHeap(i);
+        }
+        public int Count => _list.Count;
+        public void Add(T value)
+        {
+            _list.Add(value);
+            UpHeap(Count - 1);
+        }
+        private void UpHeap(int ind)
+        {
+            if (ind == 0) return;
+            while (_comparer.Compare(_list[(ind - 1) / 2], _list[ind]) < 0)
+            {
+                (_list[ind], _list[(ind - 1) / 2]) = (_list[(ind - 1) / 2], _list[ind]);
+                ind = (ind - 1) / 2;
+            }
+        }
+        public void Delete()
+        {
+            if (Count == 0) return;
+            else
+            {
+                int last = Count - 1;
+                _list[0] = _list[last];
+                _list.RemoveAt(last);
+                DownHeap(0);
+            }
+        }
+        private void DownHeap(int ind)
+        {
+            int nextInd = 2 * ind + 1;
+            while (nextInd < Count)
+            {
+                if (nextInd + 1 < Count && _comparer.Compare(_list[nextInd + 1], _list[nextInd]) > 0) nextInd += 1;
+                if (_comparer.Compare(_list[nextInd], _list[ind]) > 0)
+                {
+                    (_list[nextInd], _list[ind]) = (_list[ind], _list[nextInd]);
+                    ind = nextInd;
+                    nextInd = 2 * ind + 1;
+                }
+                else break;
+            }
+        }
+        public T GetValue(int index)
+        {
+            if (index < 0 || index >= Count) throw new ArgumentOutOfRangeException($"Current index ({index}) is out of range");
+            if (_list == null) throw new NullReferenceException("The inner array was not initialized");
+            return _list[index];
+        }
+        public IMyIterator<T> GetForwardBegin => new MyBinaryHeapIterator<T>(this, true);
+        public IMyIterator<T> GetReverseBegin => new MyBinaryHeapIterator<T>(this, false);
+
     }
 }

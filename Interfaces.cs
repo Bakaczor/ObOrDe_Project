@@ -64,20 +64,17 @@ namespace Interfaces
     public interface IMyCollection<T>
     {
         void Add(T value);
-        bool Delete(T value); //using Equals method, returns false if no occurence has been found, deletes only first occurence
+        void Delete() { } //deletes the element of the highest priority
+        bool Delete(T value) { return false; } //using Equals method, returns false if no occurence has been found, deletes only first occurence
         int Count { get; }
         IMyIterator<T> GetForwardBegin { get; }
-        //IMyIterator<T> GetForwardEnd { get; }
         IMyIterator<T> GetReverseBegin { get; }
-        //IMyIterator<T> GetReverseEnd { get; }
     }
-
     public interface IMyIterator<T>
     {
         int CurrentIndex { get; }
         T CurrentValue { get; }
         bool MoveNext();
-        //bool Equals(object? other);
     }
 
 }
