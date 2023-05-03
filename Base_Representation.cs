@@ -5,11 +5,11 @@ namespace Base_Representation
 {
     public enum EType
     {
-        bus, tram, other
+        bus = 1, tram = 2, other = 3
     }
     public enum EEngineClass
     {
-        Byte5, bisel20, gibgaz
+        Byte5 = 1, bisel20 = 2, gibgaz = 3
     }
     public class Line : ILine
     {
