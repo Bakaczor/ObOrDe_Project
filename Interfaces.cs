@@ -8,9 +8,9 @@ namespace Interfaces
     }
     public interface ILine
     {
-        string NumberHex { get; }
-        int NumberDec { get; }
-        string CommonName { get; }
+        string NumberHex { get; set; }
+        int NumberDec { get; set; }
+        string CommonName { get; set; }
         List<int> GetStopIds {  get; }
         List<int> GetVehicleIds { get; }
         string ToString();
@@ -23,9 +23,9 @@ namespace Interfaces
     }
     public interface IStop
     {
-        int Id { get; }
-        string Name { get; }
-        EType Type { get; }
+        int Id { get; set; }
+        string Name { get; set; }
+        EType Type { get; set; }
         List<int> GetLineIds { get; }
         string ToString();
         bool Equals(object? other)
@@ -37,7 +37,7 @@ namespace Interfaces
     }
     public interface IVehicle
     { 
-        int Id { get; }
+        int Id { get; set; }
         List<int> GetLineIds { get; }
         string ToString();
         bool Equals(object? other)
@@ -49,9 +49,9 @@ namespace Interfaces
     }
     public interface IDriver
     {
-        string Name { get; }
-        string Surname { get; }
-        int Seniority { get; }
+        string Name { get; set; }
+        string Surname { get; set; }
+        int Seniority { get; set; }
         List<int> GetVehicleIds { get; }
         string ToString();
         bool Equals(object? other)

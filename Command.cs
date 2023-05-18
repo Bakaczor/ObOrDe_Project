@@ -8,18 +8,24 @@ namespace Command
 {
     public interface ICommand
     {
+        static bool Qable { get; }
         void Execute();
     }
     public class ExitCommand : ICommand
     {
+        public static bool Qable => false;
         public void Execute()
         {
-            Console.WriteLine("Do zobaczenia następny razem użytkowniku <3");
+            Console.Write("Do zobaczenia następny razem użytkowniku ");
+            Console.ForegroundColor = ConsoleColor.Red;
+            Console.WriteLine("<3");
+            Console.ForegroundColor = ConsoleColor.Gray;
             Environment.Exit(0);
         }
     }
     public class ListCommand : ICommand
     {
+        public static bool Qable => false;
         protected readonly string _name;
         protected Receiver _receiver;
         public ListCommand(string name, Receiver receiver)
@@ -34,12 +40,12 @@ namespace Command
     }
     public class FindCommand : ListCommand
     {
-        (string, object)[] _parameters;
-        public FindCommand(string name, Receiver receiver, (string, string)[] parameters) : base(name, receiver)
+        private (string, object, char)[] _parameters;
+        public FindCommand(string name, Receiver receiver, (string, string, char)[] parameters) : base(name, receiver)
         {
             List<(string, Type)> properties = receiver.GetProperties(name);
 
-            _parameters = new (string, object)[parameters.Length];
+            _parameters = new (string, object, char)[parameters.Length];
             for(int i = 0; i < parameters.Length; i++)
             {
                 (string, Type) property = properties.Find(((string, Type) x) => { return x.Item1 == parameters[i].Item1; });
@@ -48,14 +54,20 @@ namespace Command
                 object? paramValue = null;
                 try
                 {
-                    paramValue = Convert.ChangeType(parameters[i].Item2, property.Item2);
+                    if (property.Item2.IsEnum) paramValue = Enum.Parse(property.Item2, parameters[i].Item2);
+                    else paramValue = Convert.ChangeType(parameters[i].Item2, property.Item2);
                 }
                 catch (Exception ex)
-                {
-                    throw new ArgumentException($"Wartość pola '{parameters[i].Item1}' jest nieprawidłowa: {ex.Message}");
+                { 
+                    throw new ArgumentException($"Wartość pola '{parameters[i].Item1}' jest nieprawidłowa: {ex.Message}"); 
                 }
 
-                if (paramValue != null) _parameters[i] = (property.Item1, paramValue);
+                if (paramValue != null)
+                {
+                    if (parameters[i].Item3 != '=' && !Tools.IsString(paramValue) && !Tools.IsNumeric(paramValue))
+                        throw new ArgumentException($"Operator '{parameters[i].Item3}' nie jest wspierany dla typu {property.Item2}");
+                    _parameters[i] = (property.Item1, paramValue, parameters[i].Item3);
+                }
             }
         }
         public override void Execute()
@@ -65,34 +77,29 @@ namespace Command
     }
     public class AddCommand : ICommand
     {
+        public static bool Qable => false;
         private Receiver _receiver;
         private Dictionary<string, IBuilder> _builders;
         private string _name;
         private string _representation;
-        public AddCommand(string name, string representation, Receiver receiver)
+        private List<(string property, object value)> _parameters;
+        public bool IsDone { get; }
+        public AddCommand(string name, string representation, Receiver receiver, Dictionary<string, IBuilder> builders)
         {
             _receiver = receiver;
-            _builders = new Dictionary<string, IBuilder>
-            {
-                { "line", new LineBuilder() },
-                { "stop", new StopBuilder() },
-                { "vehicle", new VehicleBuilder() },
-                { "driver", new DriverBuilder() }
-            };
+            _builders = builders;
             _name = name;
             _representation = representation;
-        }
-        public void Execute()
-        {
-            IBuilder builder = _builders[_name];
+            _parameters = new();
+
             StringBuilder sb = new("[Dostępne pola: ");
             List<(string, Type)> properties = _receiver.GetProperties(_name);
             foreach (var property in properties) sb.Append(property.Item1 + " (" + property.Item2.Name + "), ");
             sb.Remove(sb.Length - 2, 2);
             sb.Append(']');
             Console.WriteLine(sb.ToString());
-            builder.Reset();
-            bool flag = true;
+
+            IsDone = true;
             while (true)
             {
                 Console.Write($"> ");
@@ -100,7 +107,7 @@ namespace Command
                 if (input == "DONE") break;
                 if (input == null || input == "EXIT")
                 {
-                    flag = false;
+                    IsDone = false;
                     break;
                 }
                 string[] argument = input.Split("=");
@@ -119,35 +126,50 @@ namespace Command
                 object? paramValue = null;
                 try
                 {
-                    paramValue = Convert.ChangeType(argument[1], property.Item2);
+                    if (property.Item2.IsEnum) paramValue = Enum.Parse(property.Item2, argument[1]);
+                    else paramValue = Convert.ChangeType(argument[1], property.Item2);
                 }
                 catch (Exception ex)
                 {
                     Console.WriteLine($"Wartość pola '{argument[0]}' jest nieprawidłowa: {ex.Message}");
                     continue;
                 }
-                if (paramValue != null) builder.Add(argument[0], paramValue);
+                if (paramValue != null) _parameters.Add((argument[0], paramValue));
             }
-            if (flag) _receiver.Add(builder.Build(_representation));
-            else builder.Reset();
+            if (!IsDone) _parameters.Clear();
+        }
+        public void Execute()
+        {
+            IBuilder builder = _builders[_name];
+            foreach (var (property, value) in _parameters) builder.Add(property, value);
+            _receiver.Add(builder.Build(_representation));
+            builder.Reset();
         }
     }
     public class CommandCreator
     {
-        private readonly Dictionary<string, Func<string[], ICommand>> _commands;
+        private readonly Dictionary<string, Func<string[], ICommand?>> _commands;
+        private readonly Dictionary<string, IBuilder> _builders;
         private Receiver _receiver;
         public CommandCreator(Receiver receiver)
         {
-            _commands = new Dictionary<string, Func<string[], ICommand>>
+            _commands = new Dictionary<string, Func<string[], ICommand?>>
             {
                 { "exit", CreateExit },
                 { "list", CreateList },
                 { "find", CreateFind },
                 { "add", CreateAdd },
             };
+            _builders = new Dictionary<string, IBuilder>
+            {
+                { "line", new LineBuilder() },
+                { "stop", new StopBuilder() },
+                { "vehicle", new VehicleBuilder() },
+                { "driver", new DriverBuilder() }
+            };
             _receiver = receiver;
         }
-        public ICommand CreateCommand(string name, string[] arguments)
+        public ICommand? CreateCommand(string name, string[] arguments)
         {
             if (!_commands.ContainsKey(name)) throw new ArgumentException("Nie znaleziono podanej komendy.");
             else return _commands[name](arguments);
@@ -168,16 +190,19 @@ namespace Command
             if (arguments.Length < 1) throw new ArgumentException("Za mało argumentów! Oczekiwano przynajmniej nazwy klasy.");
             string name = arguments[0];
             if (!_receiver.Contains(name)) throw new ArgumentException("Podana klasa nie jest obsługiwana.");
-            (string parameter, string value)[] parameters = new (string, string)[arguments.Length - 1];
+
+            (string parameter, string value, char op)[] parameters = new (string, string, char)[arguments.Length - 1];
             for (int i = 1; i < arguments.Length; i++)
             {
-                string[] argument = arguments[i].Split("=");
-                if (argument.Length != 2) throw new ArgumentException("Błędny format argumentu - liczba znaków '=' powinna wynosić jeden.");
+                char op = Tools.CheckOperator(arguments[i]);
+                if (op == '\0') throw new ArgumentException("Błędny format argumentu - brak dopuszczalnego operatora porównania.");
+                string[] argument = arguments[i].Split(op);
+                if (argument.Length != 2) throw new ArgumentException("Błędny format argumentu - liczba operatorów porównania powinna wynosić jeden.");
 
                 StringBuilder sb = new();
                 sb.Append(char.ToUpper(argument[0][0]));
                 sb.Append(argument[0][1..]);
-                parameters[i - 1] = (sb.ToString(), argument[1]);
+                parameters[i - 1] = (sb.ToString(), argument[1], op);
             }
             try
             {
@@ -185,14 +210,16 @@ namespace Command
             }
             catch (Exception) { throw; }
         }
-        private ICommand CreateAdd(string[] arguments)
+        private ICommand? CreateAdd(string[] arguments)
         {
             if (arguments.Length < 2) throw new ArgumentException("Za mało argumentów! Oczekiwano nazwy klasy i jej reprezentacji.");
             string name = arguments[0];
             string representation = arguments[1];
             if (!_receiver.Contains(name)) throw new ArgumentException("Podana klasa nie jest obsługiwana.");
             if (representation != "base" && representation != "secondary") throw new ArgumentException("Podana reprezentacja nie jest obsługiwana.");
-            return new AddCommand(name, representation, _receiver);
+            AddCommand command = new(name, representation, _receiver, _builders);
+            if (command.IsDone) return command;
+            else return null;
         }
     }
     public class Invoker
@@ -208,17 +235,24 @@ namespace Command
         {
             _queue.Enqueue(command);
         }
-        private void Execute()
+        private ICommand? GetNext()
         {
-            ICommand command = _queue.Dequeue();
-            command.Execute();
+            if(_queue.Count == 0) return null;
+            return _queue.Dequeue();
         }
         public void Run()
         {
             Console.WriteLine("Witaj drogi użytowniku, w czym mogę służyć?");
             while (true)
             {
-                Console.Write($"{Tools.Domain}> ");
+                Console.Write($"{Tools.Username}");
+                Console.ForegroundColor = ConsoleColor.Blue;
+                Console.Write("@");
+                Console.ForegroundColor = ConsoleColor.Gray;
+                Console.Write($"{Tools.CurDir}");
+                Console.ForegroundColor = ConsoleColor.Green;
+                Console.Write(" $ ");
+                Console.ForegroundColor = ConsoleColor.Gray;
                 string? input = Console.ReadLine();
                 if (input == null) return;
 
@@ -234,8 +268,8 @@ namespace Command
                 }
                 if(command != null)
                 {
-                    Add(command);
-                    Execute();
+                    if(ICommand.Qable) Add(command);
+                    else command.Execute();
                 }
             }
         }
@@ -243,7 +277,7 @@ namespace Command
     public class Receiver
     {
         private readonly Dictionary<string, Type> _types;
-        private readonly Dictionary<string, List<(string, Type)>> _properties;
+        private readonly Dictionary<string, List<(string, Type)>> _properties; //zastępowalne przez klasę PropertyInfo, oferującą informacje takie jak Name czy PropertyType
         private IMyCollection<object> _collection;
         public Receiver(IMyCollection<object> collection, Dictionary<string, Type> types, Dictionary<string, List<(string, Type)>> properties)
         {
@@ -264,7 +298,7 @@ namespace Command
             MyCollectionAlgorithms.ForEach(_collection.GetForwardBegin, (object x) => { if (type.IsInstanceOfType(x)) Console.WriteLine(x.ToString()); });
             Console.WriteLine();
         }
-        public void Find(string name, (string, object)[] parameters)
+        public void Find(string name, (string, object, char)[] parameters)
         {
             if (_collection.Count == 0)
             {
@@ -279,10 +313,10 @@ namespace Command
                 if (type.IsInstanceOfType(x))
                 {
                     bool flag = true;
-                    foreach ((string propertyName, object value) in parameters)
+                    foreach ((string propertyName, object value, char op) in parameters)
                     {
                         PropertyInfo property = properties.Find((PropertyInfo x) => { return x.Name == propertyName; })!;
-                        if (!Equals(property.GetValue(x), value))
+                        if (!Tools.Compare(property.GetValue(x), value, op))
                         {
                             flag = false;
                             break;
@@ -300,8 +334,65 @@ namespace Command
     }
     public static class Tools
     {
-        private static readonly string _domain = AppDomain.CurrentDomain.BaseDirectory[..^1];
-        public static string Domain { get { return _domain; } }
+        public static string CurDir { get; }
+        public static string Username { get; }
+        static Tools()
+        {
+            Username = Environment.UserName;
+            string[] dirs = Directory.GetCurrentDirectory().Split("\\");
+            CurDir = dirs[^4] + "\\" + dirs[^3] + "\\" + dirs[^2] + "\\" + dirs[^1];
+        }
+        public static bool Compare(object? val1, object val2, char op)
+        {
+            if (val1 == null)
+            {
+                if (IsNumeric(val2)) val1 = 0;
+                if (IsString(val2)) val1 = string.Empty;
+            }
+            switch (op)
+            {
+                case '=':
+                    return Equals(val1, val2);
+                case '>':
+                    if (IsNumeric(val1))
+                    {
+                        double res = Convert.ToDouble(val1!) - Convert.ToDouble(val2);
+                        if (Math.Abs(res) < double.Epsilon) return false;
+                        return res > 0;
+                    }
+                    if (IsString(val1)) return string.Compare((string)val1!, (string)val2) > 0;
+                    throw new ArgumentException($"Operator '{op}' jest wspierany tylko dla typów tekstowych i numerycznych");
+                case '<':
+                    if (IsNumeric(val1))
+                    {
+                        double res = Convert.ToDouble(val1!) - Convert.ToDouble(val2);
+                        if (Math.Abs(res) < double.Epsilon) return false;
+                        return res < 0;
+                    }
+                    if (IsString(val1)) return string.Compare((string)val1!, (string)val2) < 0;
+                    throw new ArgumentException($"Operator '{op}' jest wspierany tylko dla typów tekstowych i numerycznych");
+                default:
+                    return false;
+            }
+        }
+        public static bool IsString(object? value)
+        {
+            if (value == null) return false;
+            return value is string;
+        }
+        public static bool IsNumeric(object? value)
+        {
+            if(value == null) return false;
+            return value is
+                byte or sbyte or ushort or uint or ulong or short or int or long or decimal or float or double;
+        }
+        public static char CheckOperator(string value)
+        {
+            if (value.Contains('=')) return '=';
+            else if (value.Contains('>')) return '>';
+            else if (value.Contains('<')) return '<';
+            else return '\0';
+        }
         public static string[] SpaceSplit(string input)
         {
             bool inQuotes = false;

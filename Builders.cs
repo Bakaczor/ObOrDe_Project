@@ -4,8 +4,8 @@ using Adapters;
 
 namespace Builders
 {
-    interface IBuilder
-    {
+    public interface IBuilder
+    { 
         void Reset();
         void Add(string property, object value);
         object Build(string representation);

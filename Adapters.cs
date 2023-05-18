@@ -35,8 +35,27 @@ namespace Adapters
                 ST.Pop(); ST.Pop(); ST.Pop();
                 return ST.Pop();
             }
+            set
+            {
+                Stack<string> TmpST = new(_line.LineTuple.Item2);
+                TmpST.Pop();
+                TmpST.Push(value);
+                _line.LineTuple = new(NumberDec, new(TmpST));
+            }
         }
-        public int NumberDec { get => _line.LineTuple.Item1; }
+        public int NumberDec
+        { 
+            get => _line.LineTuple.Item1;
+            set
+            {
+                Stack<string> TmpST = new(_line.LineTuple.Item2);
+                string NHex = TmpST.Pop();
+                TmpST.Pop();
+                TmpST.Push(value.ToString());
+                TmpST.Push(NHex);
+                _line.LineTuple = new(NumberDec, new(TmpST));
+            }
+        }
         public string CommonName
         {
             get
@@ -50,6 +69,19 @@ namespace Adapters
                 for (int i = 0; i < num; i++) ST.Pop();
 
                 return ST.Pop();
+            }
+            set
+            {
+                Stack<string> TmpST = new(_line.LineTuple.Item2);
+                string NHex = TmpST.Pop();
+                string NDec = TmpST.Pop();
+                string N = TmpST.Pop();
+                TmpST.Pop();
+                TmpST.Push(value);
+                TmpST.Push(N);
+                TmpST.Push(NDec);
+                TmpST.Push(NHex);
+                _line.LineTuple = new(NumberDec, new(TmpST));
             }
         }
         public List<int> GetStopIds
@@ -109,7 +141,17 @@ namespace Adapters
     {
         private readonly TSStop _stop;
         public StopTS2B(TSStop stop) { _stop = stop; }
-        public int Id { get => _stop.StopTuple.Item1; }
+        public int Id
+        { 
+            get => _stop.StopTuple.Item1;
+            set
+            {
+                Stack<string> TmpST = new(_stop.StopTuple.Item2);
+                TmpST.Pop();
+                TmpST.Push(value.ToString());
+                _stop.StopTuple = new(Id, new(TmpST));
+            }
+        }
         public string Name
         {
             get
@@ -121,6 +163,17 @@ namespace Adapters
                 ST.Pop();
                 return ST.Pop();
             }
+            set
+            {
+                Stack<string> TmpST = new(_stop.StopTuple.Item2);
+                string id = TmpST.Pop();
+                string N = TmpST.Pop();
+                TmpST.Pop();
+                TmpST.Push(value);
+                TmpST.Push(N);
+                TmpST.Push(id);
+                _stop.StopTuple = new(Id, new(TmpST));
+            }
         }
         public EType Type
         {
@@ -131,6 +184,19 @@ namespace Adapters
                 int num = int.Parse(ST.Pop());
                 for (int i = 0; i < num; i++) ST.Pop();
                 return (EType)Enum.Parse(typeof(EType), ST.Pop());
+            }
+            set
+            {
+                Stack<string> TmpST = new(_stop.StopTuple.Item2);
+                string id = TmpST.Pop();
+                string N = TmpST.Pop();
+                string name = TmpST.Pop();
+                TmpST.Pop();
+                TmpST.Push(value.ToString());
+                TmpST.Push(name);
+                TmpST.Push(N);
+                TmpST.Push(id);
+                _stop.StopTuple = new(Id, new(TmpST));
             }
         }
         public List<int> GetLineIds
@@ -167,7 +233,17 @@ namespace Adapters
     {
         private readonly TSVehicle _vehicle;
         public VehicleTS2B(TSVehicle vehicle) { _vehicle = vehicle; }
-        public int Id { get => _vehicle.VehicleTuple.Item1; }
+        public int Id
+        { 
+            get => _vehicle.VehicleTuple.Item1;
+            set
+            {
+                Stack<string> TmpST = new(_vehicle.VehicleTuple.Item2);
+                TmpST.Pop();
+                TmpST.Push(value.ToString());
+                _vehicle.VehicleTuple = new(Id, new(TmpST));
+            }
+        }
         public List<int> GetLineIds
         {
             get
@@ -220,6 +296,17 @@ namespace Adapters
                 ST.Pop(); ST.Pop();
                 return ST.Pop();
             }
+            set
+            {
+                Stack<string> TmpST = new(_driver.DriverTuple.Item2);
+                string id = TmpST.Pop();
+                string N = TmpST.Pop();
+                TmpST.Pop();
+                TmpST.Push(value);
+                TmpST.Push(N);
+                TmpST.Push(id);
+                _driver.DriverTuple = new((Name + "-" + Surname).GetHashCode(), new(TmpST));
+            }
 
         }
         public string Surname
@@ -232,6 +319,19 @@ namespace Adapters
                 ST.Pop();
                 return ST.Pop();
             }
+            set
+            {
+                Stack<string> TmpST = new(_driver.DriverTuple.Item2);
+                string id = TmpST.Pop();
+                string N = TmpST.Pop();
+                string name = TmpST.Pop();
+                TmpST.Pop();
+                TmpST.Push(value);
+                TmpST.Push(name);
+                TmpST.Push(N);
+                TmpST.Push(id);
+                _driver.DriverTuple = new((Name + "-" + Surname).GetHashCode(), new(TmpST));
+            }
         }
         public int Seniority
         {
@@ -242,7 +342,21 @@ namespace Adapters
                 for (int i = 0; i < num; i++) { ST.Pop(); }
                 return int.Parse(ST.Pop());
             }
-
+            set
+            {
+                Stack<string> TmpST = new(_driver.DriverTuple.Item2);
+                string id = TmpST.Pop();
+                string N = TmpST.Pop();
+                string name = TmpST.Pop();
+                string surname = TmpST.Pop();
+                TmpST.Pop();
+                TmpST.Push(value.ToString());
+                TmpST.Push(surname);
+                TmpST.Push(name);
+                TmpST.Push(N);
+                TmpST.Push(id);
+                _driver.DriverTuple = new((Name + "-" + Surname).GetHashCode(), new(TmpST));
+            }
         }
         public List<int> GetVehicleIds
         {

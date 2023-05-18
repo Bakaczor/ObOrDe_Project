@@ -13,16 +13,11 @@ namespace Base_Representation
     }
     public class Line : ILine
     {
-        private string _numberHex;
-        private int _numberDec;
-        private string _commonName;
-
         public List<Stop> stops;
         public List<Vehicle> vehicles;
-
-        public string NumberHex { get => _numberHex; set => _numberHex = value; }
-        public int NumberDec { get => _numberDec; set => _numberDec = value; }
-        public string CommonName { get => _commonName; set => _commonName = value; }
+        public string NumberHex { get; set; }
+        public int NumberDec { get; set; }
+        public string CommonName { get; set; }
         public List<int> GetStopIds
         {
             get
@@ -43,15 +38,15 @@ namespace Base_Representation
         }
         public Line(string numberHex, int numberDec, string commonName, List<Stop> stops, List<Vehicle> vehicles)
         {
-            _numberHex = numberHex;
-            _numberDec = numberDec;
-            _commonName = commonName;
+            NumberHex = numberHex;
+            NumberDec = numberDec;
+            CommonName = commonName;
             this.stops = stops;
             this.vehicles = vehicles;
         }
         public override string ToString() //<numerHex>(<numerDec>)`<commonName>`@<stop id>,...!<vehicle id>,...
         {
-            StringBuilder text = new($"{_numberHex}({_numberDec})`{_commonName}`@");
+            StringBuilder text = new($"{NumberHex}({NumberDec})`{CommonName}`@");
             foreach (Stop stop in stops)
                 text.Append($"{stop.Id},");
             text.Remove(text.Length - 1, 1);
@@ -64,14 +59,10 @@ namespace Base_Representation
     }
     public class Stop : IStop
     {
-        private int _id;
-        private string _name;
-        private EType _type;
-
         public List<Line> lines;
-        public int Id { get => _id; set => _id = value; }
-        public string Name { get => _name; set => _name = value; }
-        public EType Type { get => _type; set => _type = value; }
+        public int Id { get; set; }
+        public string Name { get; set; }
+        public EType Type { get; set; }
         public List<int> GetLineIds
         {
             get
@@ -83,35 +74,32 @@ namespace Base_Representation
         }
         public Stop(int id, List<Line> lines, string name, EType type)
         {
-            _id = id;
-            _name = name;
-            _type = type;
+            Id = id;
+            Name = name;
+            Type = type;
             this.lines = lines;
         }
         public override string ToString() //#<id>(<line id>,...)<name>/<typ>
         {
-            StringBuilder text = new($"#{_id}(");
+            StringBuilder text = new($"#{Id}(");
             foreach(Line line in lines)
                 text.Append($"{line.NumberDec},");
             text.Remove(text.Length - 1, 1);
-            text.Append($"){_name}/{_type}");
+            text.Append($"){Name}/{Type}");
             return text.ToString();
         }
     }
     public abstract class Vehicle : IVehicle
     {
-        protected int _id;
-        public Vehicle(int id) { _id = id; }
-        public int Id { get => _id; set => _id = value; }
+        public Vehicle(int id) { Id = id; }
+        public int Id { get; set; }
         public abstract List<int> GetLineIds { get; }
         public override abstract string ToString();
     }
     public class Bytebus : Vehicle, IVehicle
     {
-        private EEngineClass _engineClass;
-
         public List<Line> lines;
-        public EEngineClass EngineClass { get => _engineClass; set => _engineClass = value; }
+        public EEngineClass EngineClass { get; set; }
         public override List<int> GetLineIds
         {
             get
@@ -123,12 +111,12 @@ namespace Base_Representation
         }
         public Bytebus(int id, List<Line> lines, EEngineClass engineClass) : base(id)
         {
-            _engineClass = engineClass;
+            EngineClass = engineClass;
             this.lines = lines;
         }
         public override string ToString() //#<id>^<engineClass>*<line id>,...
         {
-            StringBuilder text = new($"#{_id}^{_engineClass}*");
+            StringBuilder text = new($"#{Id}^{EngineClass}*");
             foreach (Line line in lines)
                 text.Append($"{line.NumberDec},");
             text.Remove(text.Length - 1, 1);
@@ -137,32 +125,26 @@ namespace Base_Representation
     }
     public class Tram : Vehicle, IVehicle
     {
-        private int _carsNumber;
-
         public Line line;
-        public int CarsNumber { get => _carsNumber; set => _carsNumber = value; }
+        public int CarsNumber { get; set; }
         public override List<int> GetLineIds { get => new() { line.NumberDec }; }
         public Tram(int id, int carsNumber, Line line) : base(id)
         {
-            _carsNumber = carsNumber;
+            CarsNumber = carsNumber;
             this.line = line;
         }
         public override string ToString() //#<id>(<carsNumber>)<line id>,...
         {
-            StringBuilder text = new($"#{_id}({_carsNumber}){line.NumberDec}");
+            StringBuilder text = new($"#{Id}({CarsNumber}){line.NumberDec}");
             return text.ToString();
         }
     }
     public class Driver : IDriver
     {
-        private string _name;
-        private string _surname;
-        private int _seniority;
-
         public List<Vehicle> vehicles;
-        public string Name { get => _name; set => _name = value; }
-        public string Surname { get => _surname; set => _surname = value; }
-        public int Seniority { get => _seniority; set => _seniority = value; }
+        public string Name { get; set; }
+        public string Surname { get; set; }
+        public int Seniority { get; set; }
         public List<int> GetVehicleIds
         {
             get
@@ -174,14 +156,14 @@ namespace Base_Representation
         }
         public Driver(List<Vehicle> vehicles, string name, string surname, int seniority)
         {
-            _name = name;
-            _surname = surname;
-            _seniority = seniority;
+            Name = name;
+            Surname = surname;
+            Seniority = seniority;
             this.vehicles = vehicles;       
         }
         public override string ToString() //<name> <surname>(<seniority>)@<vehicle id>,...
         {
-            StringBuilder text = new($"{_name} {_surname}({_seniority})@");
+            StringBuilder text = new($"{Name} {Surname}({Seniority})@");
             foreach (Vehicle vehicle in vehicles)
                 text.Append($"{vehicle.Id},");
             text.Remove(text.Length - 1, 1);
