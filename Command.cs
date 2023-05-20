@@ -8,12 +8,13 @@ namespace Command
 {
     public interface ICommand
     {
-        static bool Qable { get; }
+        bool Qable { get; }
         void Execute();
+        //string ToString();
     }
     public class ExitCommand : ICommand
     {
-        public static bool Qable => false;
+        public bool Qable => false;
         public void Execute()
         {
             Console.Write("Do zobaczenia następny razem użytkowniku ");
@@ -22,10 +23,14 @@ namespace Command
             Console.ForegroundColor = ConsoleColor.Gray;
             Environment.Exit(0);
         }
+        public override string ToString()
+        {
+            return "exit";
+        }
     }
     public class ListCommand : ICommand
     {
-        public static bool Qable => false;
+        public bool Qable => true;
         protected readonly string _name;
         protected Receiver _receiver;
         public ListCommand(string name, Receiver receiver)
@@ -37,10 +42,14 @@ namespace Command
         {
             _receiver.List(_name);
         }
+        public override string ToString()
+        {
+            return $"list {_name}";
+        }
     }
     public class FindCommand : ListCommand
     {
-        private (string, object, char)[] _parameters;
+        protected (string, object, char)[] _parameters;
         public FindCommand(string name, Receiver receiver, (string, string, char)[] parameters) : base(name, receiver)
         {
             List<(string, Type)> properties = receiver.GetProperties(name);
@@ -72,34 +81,69 @@ namespace Command
         }
         public override void Execute()
         {
-            _receiver.Find(_name, _parameters);
+            _receiver.FindOrDelete(_name, _parameters , false);
+        }
+    }
+    public class DeleteCommand : FindCommand
+    {
+        public DeleteCommand(string name, Receiver receiver, (string, string, char)[] parameters) : base(name, receiver, parameters) { }
+        public override void Execute()
+        {
+            _receiver.FindOrDelete(_name, _parameters, true);
+        }
+    }
+    public class EditCommand : FindCommand
+    {
+        private List<(string property, object value)> _settings;
+        public bool IsDone { get; }
+        public EditCommand(string name, Receiver receiver, (string, string, char)[] parameters) : base(name, receiver, parameters)
+        {
+            int count = _receiver.Count(_name, _parameters);
+            if (count == 0) throw new ArgumentException("Nie udało się znaleźć obiektu, który spełniałby zadane kryteria.");
+            if (count != 1) throw new ArgumentException("Znaleziono więcej niż jeden obiekt spełniający zadane kryteria.");
+            IsDone = GetInput.Loop(_name, _receiver, out _settings);
+        }
+        public override void Execute()
+        {
+            _receiver.Edit(_name, _parameters, _settings);
         }
     }
     public class AddCommand : ICommand
     {
-        public static bool Qable => false;
+        public bool Qable => true;
         private Receiver _receiver;
-        private Dictionary<string, IBuilder> _builders;
         private string _name;
         private string _representation;
         private List<(string property, object value)> _parameters;
         public bool IsDone { get; }
-        public AddCommand(string name, string representation, Receiver receiver, Dictionary<string, IBuilder> builders)
+        public AddCommand(string name, string representation, Receiver receiver)
         {
             _receiver = receiver;
-            _builders = builders;
             _name = name;
             _representation = representation;
-            _parameters = new();
-
+            IsDone = GetInput.Loop(name, receiver, out _parameters);
+        }
+        public void Execute()
+        {
+            IBuilder builder = _receiver.GetBuilder(_name);
+            foreach (var (property, value) in _parameters) builder.Add(property, value);
+            _receiver.Add(builder.Build(_representation));
+            builder.Reset();
+        }
+    }
+    public static class GetInput
+    {
+        public static bool Loop(string name, Receiver receiver, out List<(string, object)> parameters)
+        {
             StringBuilder sb = new("[Dostępne pola: ");
-            List<(string, Type)> properties = _receiver.GetProperties(_name);
+            List<(string, Type)> properties = receiver.GetProperties(name);
             foreach (var property in properties) sb.Append(property.Item1 + " (" + property.Item2.Name + "), ");
             sb.Remove(sb.Length - 2, 2);
             sb.Append(']');
             Console.WriteLine(sb.ToString());
 
-            IsDone = true;
+            bool IsDone = true;
+            parameters = new();
             while (true)
             {
                 Console.Write($"> ");
@@ -134,22 +178,82 @@ namespace Command
                     Console.WriteLine($"Wartość pola '{argument[0]}' jest nieprawidłowa: {ex.Message}");
                     continue;
                 }
-                if (paramValue != null) _parameters.Add((argument[0], paramValue));
+                if (paramValue != null) parameters.Add((argument[0], paramValue));
             }
-            if (!IsDone) _parameters.Clear();
+            if (!IsDone) parameters.Clear();
+            return IsDone;
         }
-        public void Execute()
+    }
+    public abstract class QueueCommand : ICommand
+    {
+        public bool Qable => false;
+        protected Queue<ICommand> _queue;
+        public QueueCommand(Queue<ICommand> queue)
         {
-            IBuilder builder = _builders[_name];
-            foreach (var (property, value) in _parameters) builder.Add(property, value);
-            _receiver.Add(builder.Build(_representation));
-            builder.Reset();
+            _queue = queue;
+        }
+        public abstract void Execute();
+    }
+    public class QueuePrint : QueueCommand
+    {
+        public QueuePrint(Queue<ICommand> queue) : base(queue) { }
+        public override void Execute()
+        {
+            foreach (var q in _queue)
+                Console.WriteLine(q.ToString());
+        }
+    }
+    public class QueueCommit : QueueCommand
+    {
+        public QueueCommit(Queue<ICommand> queue) : base(queue) { }
+        public override void Execute()
+        {
+            while(_queue.Count > 0)
+                _queue.Dequeue().Execute();
+        }
+    }
+    public class QueueDismiss : QueueCommand
+    {
+        public QueueDismiss(Queue<ICommand> queue) : base(queue) { }
+        public override void Execute()
+        {
+            _queue.Clear();
+        }
+    }
+    public class QueueExport : QueueCommand
+    {
+        private string _path;
+        private bool _toXML;
+        public QueueExport(Queue<ICommand> queue, string[] arguments) : base(queue)
+        {
+            _path = arguments[0];
+            if (!File.Exists(_path)) throw new FileNotFoundException();
+            _toXML = true;
+            if(arguments.Length > 1 && arguments[1] == "plaintext") _toXML = false;
+        }
+        public override void Execute()
+        {
+            //EXPORT TO XML OR PLAINTEXT (requiers ToString() in commands)
+            throw new NotImplementedException();
+        }
+    }
+    public class QueueLoad : QueueCommand
+    {
+        private string _path;
+        public QueueLoad(Queue<ICommand> queue, string path) : base(queue)
+        {
+            if (!File.Exists(path)) throw new FileNotFoundException();
+            _path = path;
+        }
+        public override void Execute()
+        {
+            //LOAD FROM THE GIVEN FILE
+            throw new NotImplementedException();
         }
     }
     public class CommandCreator
     {
         private readonly Dictionary<string, Func<string[], ICommand?>> _commands;
-        private readonly Dictionary<string, IBuilder> _builders;
         private Receiver _receiver;
         public CommandCreator(Receiver receiver)
         {
@@ -157,22 +261,15 @@ namespace Command
             {
                 { "exit", CreateExit },
                 { "list", CreateList },
-                { "find", CreateFind },
-                { "add", CreateAdd },
-            };
-            _builders = new Dictionary<string, IBuilder>
-            {
-                { "line", new LineBuilder() },
-                { "stop", new StopBuilder() },
-                { "vehicle", new VehicleBuilder() },
-                { "driver", new DriverBuilder() }
+                { "add", CreateAdd }
             };
             _receiver = receiver;
         }
         public ICommand? CreateCommand(string name, string[] arguments)
         {
-            if (!_commands.ContainsKey(name)) throw new ArgumentException("Nie znaleziono podanej komendy.");
-            else return _commands[name](arguments);
+            if (_commands.ContainsKey(name)) return _commands[name](arguments);
+            if (name == "find" || name == "delete" || name == "edit") return CreateFindOrDerived(name, arguments);
+            throw new ArgumentException("Nie znaleziono podanej komendy.");
         }
         private ICommand CreateExit(string[] arguments)
         {
@@ -185,7 +282,7 @@ namespace Command
             if (!_receiver.Contains(name)) throw new ArgumentException("Podana klasa nie jest obsługiwana.");
             return new ListCommand(name, _receiver);
         }
-        private ICommand CreateFind(string[] arguments)
+        private ICommand CreateFindOrDerived(string command, string[] arguments)
         {
             if (arguments.Length < 1) throw new ArgumentException("Za mało argumentów! Oczekiwano przynajmniej nazwy klasy.");
             string name = arguments[0];
@@ -206,7 +303,13 @@ namespace Command
             }
             try
             {
-                return new FindCommand(name, _receiver, parameters);
+                return command switch
+                {
+                    "find" => new FindCommand(name, _receiver, parameters),
+                    "delete" => new DeleteCommand(name, _receiver, parameters),
+                    "edit" => new EditCommand(name, _receiver, parameters),
+                    _ => throw new ArgumentException("Nie znaleziono podanej komendy.")
+                };
             }
             catch (Exception) { throw; }
         }
@@ -217,28 +320,26 @@ namespace Command
             string representation = arguments[1];
             if (!_receiver.Contains(name)) throw new ArgumentException("Podana klasa nie jest obsługiwana.");
             if (representation != "base" && representation != "secondary") throw new ArgumentException("Podana reprezentacja nie jest obsługiwana.");
-            AddCommand command = new(name, representation, _receiver, _builders);
+            AddCommand command = new(name, representation, _receiver);
             if (command.IsDone) return command;
             else return null;
         }
     }
     public class Invoker
     {
+        private readonly Dictionary<string, ICommand> _simpleCommands;
         private readonly CommandCreator _commandCreator;
         private Queue<ICommand> _queue;
         public Invoker(Receiver receiver)
         {
             _commandCreator = new CommandCreator(receiver);
             _queue = new Queue<ICommand>();
-        }
-        private void Add(ICommand command)
-        {
-            _queue.Enqueue(command);
-        }
-        private ICommand? GetNext()
-        {
-            if(_queue.Count == 0) return null;
-            return _queue.Dequeue();
+            _simpleCommands = new Dictionary<string, ICommand>
+            {
+                { "print", new QueuePrint(_queue) },
+                { "commit", new QueueCommit(_queue) },
+                { "dismiss", new QueueDismiss(_queue) }
+            };
         }
         public void Run()
         {
@@ -258,17 +359,31 @@ namespace Command
 
                 string[] frazes = Tools.SpaceSplit(input);
                 ICommand? command = null;
-                try
+                if (frazes[0] == "queue" && frazes.Length > 1)
                 {
-                    command = _commandCreator.CreateCommand(frazes[0], frazes[1..]);
+                    if (!_simpleCommands.ContainsKey(frazes[1]))
+                    {
+                        try
+                        {
+                            if (frazes[1] == "export" && frazes.Length > 2) command = new QueueExport(_queue, frazes[2..]);
+                            else if (frazes[1] == "load" && frazes.Length > 2) command = new QueueLoad(_queue, frazes[2]);
+                            else Console.WriteLine("Nie znaleziono podanej komendy.");
+                        }
+                        catch (Exception ex) { Console.WriteLine(ex.Message); }
+                    }
+                    else command = _simpleCommands[frazes[1]];
                 }
-                catch (Exception ex)
+                else
                 {
-                    Console.WriteLine(ex.Message);
+                    try
+                    {
+                        command = _commandCreator.CreateCommand(frazes[0], frazes[1..]);
+                    }
+                    catch (Exception ex) { Console.WriteLine(ex.Message); }
                 }
                 if(command != null)
                 {
-                    if(ICommand.Qable) Add(command);
+                    if(command.Qable) _queue.Enqueue(command);
                     else command.Execute();
                 }
             }
@@ -278,36 +393,41 @@ namespace Command
     {
         private readonly Dictionary<string, Type> _types;
         private readonly Dictionary<string, List<(string, Type)>> _properties; //zastępowalne przez klasę PropertyInfo, oferującą informacje takie jak Name czy PropertyType
+        private readonly Dictionary<string, IBuilder> _builders;
         private IMyCollection<object> _collection;
-        public Receiver(IMyCollection<object> collection, Dictionary<string, Type> types, Dictionary<string, List<(string, Type)>> properties)
+        public Receiver(IMyCollection<object> collection, Dictionary<string, Type> types, Dictionary<string, List<(string, Type)>> properties, Dictionary<string, IBuilder> builders)
         {
             _types = types;
             _collection = collection;
             _properties = properties;
+            _builders = builders;
         }
         public bool Contains(string name) { return _types.ContainsKey(name); }
         public List<(string, Type)> GetProperties(string name) { return _properties[name]; }
+        public IBuilder GetBuilder(string name) { return _builders[name]; }
         public void List(string name)
         {
             if (_collection.Count == 0)
             {
-                Console.WriteLine("Kolekcja jest pusta.\n");
+                Console.WriteLine("Kolekcja jest pusta.");
                 return;
             }
             Type type = _types[name];
             MyCollectionAlgorithms.ForEach(_collection.GetForwardBegin, (object x) => { if (type.IsInstanceOfType(x)) Console.WriteLine(x.ToString()); });
             Console.WriteLine();
         }
-        public void Find(string name, (string, object, char)[] parameters)
+        public void FindOrDelete(string name, (string, object, char)[] parameters, bool delete)
         {
             if (_collection.Count == 0)
             {
-                Console.WriteLine("Kolekcja jest pusta.\n");
+                if(!delete) Console.WriteLine("Kolekcja jest pusta.");
                 return;
             }
             Type type = _types[name];
-            List<PropertyInfo> properties = new(type.GetProperties());
+            var properties = new List<PropertyInfo>(type.GetProperties());
 
+            IMyCollection<object>? new_collection = null;
+            if (delete) new_collection = (IMyCollection<object>)Activator.CreateInstance(_collection.GetType())!;
             MyCollectionAlgorithms.ForEach(_collection.GetForwardBegin, (object x) =>
             {
                 if (type.IsInstanceOfType(x))
@@ -315,21 +435,44 @@ namespace Command
                     bool flag = true;
                     foreach ((string propertyName, object value, char op) in parameters)
                     {
-                        PropertyInfo property = properties.Find((PropertyInfo x) => { return x.Name == propertyName; })!;
+                        var property = properties.Find((PropertyInfo x) => { return x.Name == propertyName; })!;
                         if (!Tools.Compare(property.GetValue(x), value, op))
                         {
                             flag = false;
                             break;
                         }
                     }
-                    if (flag) Console.WriteLine(x.ToString());
+                    if (flag && !delete) Console.WriteLine(x.ToString());
+                    if (!flag && delete) new_collection!.Add(x);
                 }
+                else if (delete) new_collection!.Add(x);
             });
-            Console.WriteLine();
+            if (delete) _collection = new_collection!;
+            else Console.WriteLine();
         }
         public void Add(object item)
         {
             _collection.Add(item);
+        }
+        public int Count(string name, (string, object, char)[] parameters)
+        {
+            if (_collection.Count == 0) return 0;
+            Type type = _types[name];
+            var properties = new List<PropertyInfo>(type.GetProperties());
+            return MyCollectionAlgorithms.CountIf(_collection.GetForwardBegin, (object x) => Tools.VerifyObject(x, type, parameters, properties));
+        }
+        public void Edit(string name, (string, object, char)[] parameters, List<(string property, object value)> settings)
+        {
+            Type type = _types[name];
+            var properties = new List<PropertyInfo>(type.GetProperties());
+            object? item = MyCollectionAlgorithms.Find(_collection.GetForwardBegin, (object x) => Tools.VerifyObject(x, type, parameters, properties));
+            if (item == null) return;
+
+            foreach ((string propertyName, object value) in settings)
+            {
+                var property = properties.Find((PropertyInfo x) => { return x.Name == propertyName; })!;
+                property.SetValue(item, value);
+            }
         }
     }
     public static class Tools
@@ -414,6 +557,24 @@ namespace Command
             }
             if (start < input.Length) frazes.Add(input[start..].Replace("\"", null));
             return frazes.ToArray();
+        }
+        public static bool VerifyObject(object x, Type type, (string, object, char)[] parameters, List<PropertyInfo> properties)
+        {
+            if (type.IsInstanceOfType(x))
+            {
+                bool flag = true;
+                foreach ((string propertyName, object value, char op) in parameters)
+                {
+                    var property = properties.Find((PropertyInfo x) => { return x.Name == propertyName; })!;
+                    if (!Compare(property.GetValue(x), value, op))
+                    {
+                        flag = false;
+                        break;
+                    }
+                }
+                return flag;
+            }
+            return false;
         }
     }
 }
