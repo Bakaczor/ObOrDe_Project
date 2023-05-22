@@ -10,7 +10,7 @@ namespace Command
     {
         bool Qable { get; }
         void Execute();
-        //string ToString();
+        string ToString();
     }
     public class ExitCommand : ICommand
     {
@@ -25,7 +25,7 @@ namespace Command
         }
         public override string ToString()
         {
-            return "exit";
+            return "exit\n";
         }
     }
     public class ListCommand : ICommand
@@ -44,12 +44,12 @@ namespace Command
         }
         public override string ToString()
         {
-            return $"list {_name}";
+            return $"list {_name}\n";
         }
     }
     public class FindCommand : ListCommand
     {
-        protected (string, object, char)[] _parameters;
+        protected (string property, object value, char sign)[] _parameters;
         public FindCommand(string name, Receiver receiver, (string, string, char)[] parameters) : base(name, receiver)
         {
             List<(string, Type)> properties = receiver.GetProperties(name);
@@ -83,6 +83,14 @@ namespace Command
         {
             _receiver.FindOrDelete(_name, _parameters , false);
         }
+        public override string ToString()
+        {
+            var sb = new StringBuilder($"find {_name}");
+            foreach(var (property, value, sign) in _parameters)
+                sb.Append(" " + property + sign.ToString() + value.ToString());
+            sb.Append('\n');
+            return sb.ToString();
+        }
     }
     public class DeleteCommand : FindCommand
     {
@@ -90,6 +98,14 @@ namespace Command
         public override void Execute()
         {
             _receiver.FindOrDelete(_name, _parameters, true);
+        }
+        public override string ToString()
+        {
+            var sb = new StringBuilder($"delete {_name}");
+            foreach (var (property, value, sign) in _parameters)
+                sb.Append(" " + property + sign.ToString() + value.ToString());
+            sb.Append('\n');
+            return sb.ToString();
         }
     }
     public class EditCommand : FindCommand
@@ -103,9 +119,23 @@ namespace Command
             if (count != 1) throw new ArgumentException("Znaleziono więcej niż jeden obiekt spełniający zadane kryteria.");
             IsDone = GetInput.Loop(_name, _receiver, out _settings);
         }
+        public EditCommand(string name, Receiver receiver, (string, string, char)[] parameters, List<string> lines) : base(name, receiver, parameters)
+        {
+            IsDone = GetInput.Read(receiver.GetProperties(name), in lines, out _settings);
+        }
         public override void Execute()
         {
             _receiver.Edit(_name, _parameters, _settings);
+        }
+        public override string ToString()
+        {
+            var sb = new StringBuilder($"edit {_name}");
+            foreach (var (property, value, sign) in _parameters)
+                sb.Append(" " + property + sign.ToString() + value.ToString());
+            sb.Append('\n');
+            foreach (var (property, value) in _settings)
+                sb.Append("> " + property + "=" + value.ToString() + "\n");
+            return sb.ToString();
         }
     }
     public class AddCommand : ICommand
@@ -121,7 +151,14 @@ namespace Command
             _receiver = receiver;
             _name = name;
             _representation = representation;
-            IsDone = GetInput.Loop(name, receiver, out _parameters);
+            IsDone = GetInput.Loop(_name, _receiver, out _parameters);
+        }
+        public AddCommand(string name, string representation, Receiver receiver, List<string> lines)
+        {
+            _receiver = receiver;
+            _name = name;
+            _representation = representation;
+            IsDone = GetInput.Read(receiver.GetProperties(name), in lines, out _parameters);
         }
         public void Execute()
         {
@@ -129,6 +166,13 @@ namespace Command
             foreach (var (property, value) in _parameters) builder.Add(property, value);
             _receiver.Add(builder.Build(_representation));
             builder.Reset();
+        }
+        public override string ToString()
+        {
+            var sb = new StringBuilder($"add {_name} {_representation}\n");
+            foreach (var (property, value) in _parameters)
+                sb.Append("> " + property + "=" + value.ToString() + "\n");
+            return sb.ToString();
         }
     }
     public static class GetInput
@@ -160,7 +204,7 @@ namespace Command
                     Console.WriteLine("Błędny format argumentu - liczba znaków '=' powinna wynosić jeden.");
                     continue;
                 }
-                (string, Type) property = properties.Find(((string, Type) x) => { return x.Item1 == argument[0]; });
+                (string property, Type type) property = properties.Find(((string, Type) x) => { return x.Item1 == argument[0]; });
                 if (property == default)
                 {
                     Console.WriteLine($"Podana klasa nie zawiera pola '{argument[0]}'.");
@@ -170,8 +214,8 @@ namespace Command
                 object? paramValue = null;
                 try
                 {
-                    if (property.Item2.IsEnum) paramValue = Enum.Parse(property.Item2, argument[1]);
-                    else paramValue = Convert.ChangeType(argument[1], property.Item2);
+                    if (property.type.IsEnum) paramValue = Enum.Parse(property.type, argument[1]);
+                    else paramValue = Convert.ChangeType(argument[1], property.type);
                 }
                 catch (Exception ex)
                 {
@@ -183,6 +227,38 @@ namespace Command
             if (!IsDone) parameters.Clear();
             return IsDone;
         }
+        public static bool Read(List<(string property, Type type)> properties, in List<string> lines, out List<(string, object)> parameters)
+        {
+            parameters = new();
+            foreach(string line in lines)
+            {
+                string[] argument = line.Split("=");
+                (string property, Type type) property = properties.Find(((string, Type) x) => { return x.Item1 == argument[0]; });
+                argument[1] = argument[1].Replace("\"", "");
+                object? paramValue;
+                if (property.type.IsEnum) paramValue = Enum.Parse(property.type, argument[1]);
+                else paramValue = Convert.ChangeType(argument[1], property.type);
+                if (paramValue != null) parameters.Add((argument[0], paramValue));
+            }
+            return true;
+        }
+        public static (string, string, char)[] PrepareParameters(string[] arguments)
+        {
+            (string parameter, string value, char op)[] parameters = new (string, string, char)[arguments.Length - 1];
+            for (int i = 1; i < arguments.Length; i++)
+            {
+                char op = Tools.CheckOperator(arguments[i]);
+                if (op == '\0') throw new ArgumentException("Błędny format argumentu - brak dopuszczalnego operatora porównania.");
+                string[] argument = arguments[i].Split(op);
+                if (argument.Length != 2) throw new ArgumentException("Błędny format argumentu - liczba operatorów porównania powinna wynosić jeden.");
+
+                var sb = new StringBuilder();
+                sb.Append(char.ToUpper(argument[0][0]));
+                sb.Append(argument[0][1..]);
+                parameters[i - 1] = (sb.ToString(), argument[1], op);
+            }
+            return parameters;
+        }
     }
     public abstract class QueueCommand : ICommand
     {
@@ -193,6 +269,10 @@ namespace Command
             _queue = queue;
         }
         public abstract void Execute();
+        public override string ToString()
+        {
+            return "queue command\n";
+        }
     }
     public class QueuePrint : QueueCommand
     {
@@ -227,34 +307,98 @@ namespace Command
         public QueueExport(Queue<ICommand> queue, string[] arguments) : base(queue)
         {
             _path = arguments[0];
-            if (!File.Exists(_path)) throw new FileNotFoundException();
             _toXML = true;
             if(arguments.Length > 1 && arguments[1] == "plaintext") _toXML = false;
         }
         public override void Execute()
         {
-            //EXPORT TO XML OR PLAINTEXT (requiers ToString() in commands)
-            throw new NotImplementedException();
+            if(_toXML)
+                throw new NotImplementedException();
+            else
+            {
+                try
+                {
+                    using (FileStream fileStream = new(_path, FileMode.Create, FileAccess.Write))
+                    {
+                        using (StreamWriter writer = new(fileStream))
+                        {
+                            foreach (ICommand command in _queue) writer.WriteLine(command.ToString());
+                        }
+                    }
+                    Console.WriteLine($"Komendy zostały zapisane do pliku: {_path}.");
+                }
+                catch (Exception ex) { Console.WriteLine("Nastąpił błąd związany z wprowadzoną ścieżką: " + ex.ToString()); }
+            }
         }
     }
     public class QueueLoad : QueueCommand
     {
         private string _path;
-        public QueueLoad(Queue<ICommand> queue, string path) : base(queue)
+        private bool _fromXML;
+        private readonly CommandCreator _commandCreator;
+        private readonly Receiver _receiver;
+        public QueueLoad(Queue<ICommand> queue, string path, CommandCreator commandCreator, Receiver receiver) : base(queue)
         {
             if (!File.Exists(path)) throw new FileNotFoundException();
             _path = path;
+            _fromXML = Path.GetExtension(path).Equals(".xml", StringComparison.OrdinalIgnoreCase);
+            _commandCreator = commandCreator;
+            _receiver = receiver;
         }
         public override void Execute()
         {
-            //LOAD FROM THE GIVEN FILE
-            throw new NotImplementedException();
+            if (_fromXML)
+                throw new NotImplementedException();
+            else
+            {
+                try
+                {
+                    using (StreamReader reader = new(_path))
+                    {
+                        string? input;
+                        while ((input = reader.ReadLine()) != null)
+                        {
+                            string[] frazes = Tools.SpaceSplit(input);
+                            if (frazes.Length == 0) continue;
+                            ICommand? command;
+                            if (frazes[0] == "list" || frazes[0] == "find" || frazes[0] == "delete")
+                                command = _commandCreator.CreateCommand(frazes[0], frazes[1..]);
+                            else
+                            {
+                                string name = frazes[1];
+                                List<string> lines = new();
+
+                                string? line;
+                                while ((line = reader.ReadLine()) != null)
+                                {
+                                    string[] setting = Tools.SpaceSplit(line);
+                                    if (setting.Length == 0 || setting[0] != ">") break;
+                                    else lines.Add(setting[1]);
+                                }
+                                if (frazes[0] == "edit")
+                                {
+                                    var parameters = GetInput.PrepareParameters(frazes[1..]);
+                                    command = new EditCommand(name, _receiver, parameters, lines);
+                                }
+                                else
+                                {
+                                    string representation = frazes[2];
+                                    command = new AddCommand(name, representation, _receiver, lines);
+                                }
+                            }
+                            if (command != null) _queue.Enqueue(command);
+                        }
+                    }
+                    Console.WriteLine($"Komendy zostały wczytane z pliku: {_path}.");
+                }
+                catch (Exception ex) { Console.WriteLine("Nastąpił błąd związany z wprowadzoną ścieżką: " + ex.ToString()); }
+            }
         }
     }
     public class CommandCreator
     {
         private readonly Dictionary<string, Func<string[], ICommand?>> _commands;
-        private Receiver _receiver;
+        private readonly Receiver _receiver;
         public CommandCreator(Receiver receiver)
         {
             _commands = new Dictionary<string, Func<string[], ICommand?>>
@@ -287,22 +431,9 @@ namespace Command
             if (arguments.Length < 1) throw new ArgumentException("Za mało argumentów! Oczekiwano przynajmniej nazwy klasy.");
             string name = arguments[0];
             if (!_receiver.Contains(name)) throw new ArgumentException("Podana klasa nie jest obsługiwana.");
-
-            (string parameter, string value, char op)[] parameters = new (string, string, char)[arguments.Length - 1];
-            for (int i = 1; i < arguments.Length; i++)
-            {
-                char op = Tools.CheckOperator(arguments[i]);
-                if (op == '\0') throw new ArgumentException("Błędny format argumentu - brak dopuszczalnego operatora porównania.");
-                string[] argument = arguments[i].Split(op);
-                if (argument.Length != 2) throw new ArgumentException("Błędny format argumentu - liczba operatorów porównania powinna wynosić jeden.");
-
-                StringBuilder sb = new();
-                sb.Append(char.ToUpper(argument[0][0]));
-                sb.Append(argument[0][1..]);
-                parameters[i - 1] = (sb.ToString(), argument[1], op);
-            }
             try
             {
+                var parameters = GetInput.PrepareParameters(arguments);
                 return command switch
                 {
                     "find" => new FindCommand(name, _receiver, parameters),
@@ -329,9 +460,11 @@ namespace Command
     {
         private readonly Dictionary<string, ICommand> _simpleCommands;
         private readonly CommandCreator _commandCreator;
+        private readonly Receiver _receiver;
         private Queue<ICommand> _queue;
         public Invoker(Receiver receiver)
         {
+            _receiver = receiver;
             _commandCreator = new CommandCreator(receiver);
             _queue = new Queue<ICommand>();
             _simpleCommands = new Dictionary<string, ICommand>
@@ -366,7 +499,7 @@ namespace Command
                         try
                         {
                             if (frazes[1] == "export" && frazes.Length > 2) command = new QueueExport(_queue, frazes[2..]);
-                            else if (frazes[1] == "load" && frazes.Length > 2) command = new QueueLoad(_queue, frazes[2]);
+                            else if (frazes[1] == "load" && frazes.Length > 2) command = new QueueLoad(_queue, frazes[2], _commandCreator, _receiver);
                             else Console.WriteLine("Nie znaleziono podanej komendy.");
                         }
                         catch (Exception ex) { Console.WriteLine(ex.Message); }
